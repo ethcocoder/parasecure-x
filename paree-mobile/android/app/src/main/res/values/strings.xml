@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">PareeMobile</string>
+    <string name="title_activity_main">PareeMobile</string>
+    <string name="package_name">com.parasecure.paree</string>
+    <string name="custom_url_scheme">com.parasecure.paree</string>
+</resources>
