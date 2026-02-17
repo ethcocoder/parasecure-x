@@ -18,16 +18,32 @@ class MappingGenerator:
         hash_val = hashlib.sha256(hash_input).digest()
         return int.from_bytes(hash_val[:8], 'big')
 
-    def _reversible_cipher(self, value):
-
-        """Simple XOR-based cipher for values outside the vocabulary."""
+    def _reversible_cipher(self, value, decrypt=False):
+        """Reversible XOR cipher that produces printable Hex strings."""
         key = hashlib.sha256(self.session_key.encode()).digest()
+        
+        if decrypt:
+            try:
+                # Convert hex back to bytes
+                data = bytes.fromhex(value)
+            except ValueError:
+                return value
+        else:
+            if isinstance(value, str):
+                data = value.encode()
+            else:
+                data = value
+            
         result = []
-        for i, char in enumerate(value):
-            # Using i + seed to ensure different values map differently
+        for i, b in enumerate(data):
+            # Same deterministic key byte
             k_byte = key[(i + self.seed) % len(key)]
-            result.append(chr(ord(char) ^ k_byte))
-        return "".join(result)
+            result.append(b ^ k_byte)
+            
+        if decrypt:
+            return bytes(result).decode('utf-8', errors='ignore')
+        else:
+            return bytes(result).hex()
 
     def generate_mapping(self, token_type, vocabulary):
         """
@@ -57,9 +73,7 @@ class MappingGenerator:
         # Decrypt hex cipher
         return self._reversible_cipher(value, decrypt=True)
 
-
     @staticmethod
     def get_time_window(timestamp, window_minutes=5):
-
         """Aligns timestamp to a window to handle small desyncs."""
         return int(timestamp // (window_minutes * 60))
