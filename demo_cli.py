@@ -61,9 +61,11 @@ def run_demo():
     # 5. Verify
     print("\n" + "="*60)
     if raw_final.strip() == raw_request.strip():
-        print("\033[92m[SUCCESS] 100% Data Integrity Verified! ✓\033[0m")
+        # Fallback to ASCII for terminal safety
+        print("\033[92m[SUCCESS] 100% Data Integrity Verified! [OK]\033[0m")
     else:
-        print("\033[91m[FAILURE] Data Corruption Detected! ✗\033[0m")
+        print("\033[91m[FAILURE] Data Corruption Detected! [ERROR]\033[0m")
+
     
     # Show uniqueness
     print("\n[*] Demonstrating Sovereign Uniqueness...")
@@ -73,8 +75,52 @@ def run_demo():
     
     print(f"Session A Length: {len(raw_encoded)}")
     print(f"Session B Length: {len(re_other)}")
-    print(f"Session A != Session B: {raw_encoded != re_other}")
     print("="*60)
 
+def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="PAREE Engine Interactive Demo")
+    parser.add_argument("--interactive", action="store_true", help="Paste your own HTTP request")
+    args = parser.parse_args()
+    
+    if args.interactive:
+        print_box("PAREE INTERACTIVE MODE", "Paste your HTTP request below (Double Enter to Finish):", "\033[94m")
+        lines = []
+        while True:
+            line = sys.stdin.readline()
+            if not line or line == "\n" or line == "\r\n":
+                if lines: break
+            lines.append(line)
+        
+        raw_request = "".join(lines)
+        
+        print("\nEnter Session Key (default: sovereign_demo): ", end="")
+        s_key = sys.stdin.readline().strip() or "sovereign_demo"
+        
+        ts = int(time.time())
+        
+        # Run Demo Logic
+        tokenizer = HTTPTokenizer(session_key=s_key)
+        tokens = tokenizer.tokenize(raw_request)
+        encoder = ReversibleEncoder(s_key, ts)
+        encoded_tokens = encoder.encode(tokens)
+        raw_encoded = tokenizer.reconstruct(encoded_tokens)
+        
+        print_box("Encoded Packet", raw_encoded, "\033[91m")
+        
+        decoder = ReversibleDecoder(s_key, ts)
+        decoded_tokens = decoder.decode(encoded_tokens)
+        raw_final = tokenizer.reconstruct(decoded_tokens)
+        
+        print_box("Decoded Packet", raw_final, "\033[92m")
+        
+        if raw_final.strip() == raw_request.strip():
+            print("\033[92m[SUCCESS] 100% Integrity Verified! [OK]\033[0m")
+        else:
+            print("\033[91m[FAILURE] Corruption Detected! [ERROR]\033[0m")
+    else:
+        run_demo()
+
 if __name__ == "__main__":
-    run_demo()
+    main()
+

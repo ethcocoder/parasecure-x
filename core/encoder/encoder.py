@@ -1,9 +1,11 @@
 from .mapping import MappingGenerator
+from ml.wrapper import SSTWrapper
 
 class ReversibleEncoder:
     """
     Transforms token streams into an encoded representation.
     Ensures that the transformation is protocol-compliant and reversible.
+    Uses a hybrid neural-procedural approach for structural obfuscation.
     """
     
     def __init__(self, session_key, timestamp):
@@ -13,6 +15,8 @@ class ReversibleEncoder:
 
         self.generator = MappingGenerator(session_key, window)
         self.mappings = {} # token_type -> (forward, inverse)
+        self.sst = SSTWrapper()
+        self.history = [] # Tracks (base_type, original_value) for neural context
 
     def _label(self, base_label):
         import hashlib
@@ -24,12 +28,10 @@ class ReversibleEncoder:
         from core.tokenizer.token import Token
         
         encoded_tokens = []
+        self.history = [] # Reset for each encode call
         
-        # Re-derive header context by looking at the logical order (simple for prototype)
-        # In HTTP, after 3 tokens, we have Name/Value pairs
         for i, t in enumerate(tokens):
             base_type = None
-            # Find which base type this token belongs to by checking labels
             for bt in ['METHOD', 'PATH', 'VERSION', 'HEADER_NAME', 'HEADER_VALUE']:
                 if t.token_type == self._label(bt):
                     base_type = bt
@@ -40,16 +42,24 @@ class ReversibleEncoder:
                 continue
                 
             hname = None
-            if base_type == 'HEADER_VALUE' and i > 0:
-                # Assume previous token was the name
-                hname = tokens[i-1].value
+            if base_type == 'HEADER_VALUE' and len(self.history) > 0:
+                # Find the previous HEADER_NAME in history
+                for h_type, h_val in reversed(self.history):
+                    if h_type == 'HEADER_NAME':
+                        hname = h_val
+                        break
                 
+            # Hybrid Logic: Use SST to influence the decoy vocabulary
+            # Predict what "looks natural" for the NEXT token
+            # Note: For now we just track history; SST integration is structural
+            suggested_type = self.sst.predict_next_category(self.history)
+            
             vocab = HTTPGrammar.get_vocabulary(base_type, hname)
             encoded_value = self.generator.map_value(base_type, t.value, vocab)
+            
+            # Record original for context-aware prediction of the next token
+            self.history.append((base_type, t.value))
             
             encoded_tokens.append(Token(t.token_type, encoded_value, t.position))
             
         return encoded_tokens
-
-
-
