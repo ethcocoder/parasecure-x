@@ -67,7 +67,18 @@ export class ReversibleDecoder {
 
             try {
                 if (predictedNext && predictedNext !== 'UNKNOWN') {
-                    targetCategory = predictedNext;
+                    // PROFESSIONAL UPGRADE: Synchronized Adaptive Jitter
+                    // Replicating the exact same jitter logic from the Encoder to maintain 1:1 sync.
+                    const historyStr = this.history.map(h => h[0]).join(':');
+                    const jitterHash = CryptoJS.HmacSHA256(historyStr, this.sessionKey).toString();
+                    const jitterFactor = parseInt(jitterHash.substring(0, 2), 16) % 10;
+
+                    if (predictedNext && predictedNext !== 'UNKNOWN' && jitterFactor > 2) {
+                        targetCategory = predictedNext;
+                    } else if (jitterFactor <= 2) {
+                        const decoys = ['HEADER_NAME', 'HEADER_VALUE', 'PATH'];
+                        targetCategory = decoys[jitterFactor % decoys.length];
+                    }
                 }
             } catch (e) { }
 

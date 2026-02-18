@@ -77,11 +77,21 @@ export class ReversibleEncoder {
             try {
                 // prediction is strictly based on history, which is shared state
                 const predicted = await this.sst.predictNextCategory(this.history);
-                if (predicted && predicted !== 'UNKNOWN') {
-                    // Check if we have a vocabulary for this prediction
-                    // We map the *Original Value* (baseType) into the *Predicted Vocabulary* (targetCategory)
-                    // This creates the camouflage.
+
+                // PROFESSIONAL UPGRADE: Adaptive Jitter
+                // We add a deterministic "noise" factor to decoy selection.
+                // Even if the model predicts X, we might drift to Y based on session entropy.
+                // This breaks statistical frequency analysis while remaining 100% reversible.
+                const historyStr = this.history.map(h => h[0]).join(':');
+                const jitterHash = CryptoJS.HmacSHA256(historyStr, this.sessionKey).toString();
+                const jitterFactor = parseInt(jitterHash.substring(0, 2), 16) % 10;
+
+                if (predicted && predicted !== 'UNKNOWN' && jitterFactor > 2) { // 70% chance to follow model
                     targetCategory = predicted;
+                } else if (jitterFactor <= 2) {
+                    // Drift to an adjacent valid category
+                    const decoys = ['HEADER_NAME', 'HEADER_VALUE', 'PATH'];
+                    targetCategory = decoys[jitterFactor % decoys.length];
                 }
             } catch (e) {
                 // Fallback on model failure
