@@ -9,8 +9,6 @@ export class ReversibleDecoder {
     private grammar: HTTPGrammar;
     private sst: SSTWrapper;
     private sessionKey: string;
-
-    // History for SST context: [Type, Value]
     private history: [string, string][] = [];
 
     constructor(sessionKey: string, timestamp: number, modelPathOrWrapper?: string | SSTWrapper) {
@@ -31,11 +29,26 @@ export class ReversibleDecoder {
         this.history = [['START', 'START']];
     }
 
-    // Label helper to identify token types
     private label(baseLabel: string): string {
         const input = `${this.sessionKey}:${baseLabel}`;
         const hash = CryptoJS.SHA256(input).toString(CryptoJS.enc.Hex);
         return `T_${hash.substring(0, 6)}`;
+    }
+
+    /**
+     * MUST be identical logic to ReversibleEncoder.selectTargetCategory.
+     * Deterministic — no jitter, no randomness.
+     */
+    private async selectTargetCategory(baseType: string): Promise<string> {
+        try {
+            const predicted = await this.sst.predictNextCategory(this.history);
+            if (predicted && predicted !== 'UNKNOWN') {
+                return predicted;
+            }
+        } catch (_) {
+            // Model unavailable — fall through to baseType
+        }
+        return baseType;
     }
 
     async decode(encodedTokens: Token[]): Promise<Token[]> {
@@ -48,8 +61,7 @@ export class ReversibleDecoder {
         for (let i = 0; i < encodedTokens.length; i++) {
             const t = encodedTokens[i];
 
-            // 1. Identify Base Type using Dynamic Label
-            // The encoded token retains the original Type Label (Session-Specific)
+            // 1. Identify base type from dynamic label
             let baseType = 'UNKNOWN';
             for (const bt of baseTypes) {
                 if (t.type === this.label(bt)) {
@@ -58,46 +70,24 @@ export class ReversibleDecoder {
                 }
             }
 
-            // 2. Predict Next (Same as Encoder - keeping SST synchronized)
-            // Note: Decoder uses *decoded* history for prediction, matching Encoder's *original* history
-            const predictedNext = await this.sst.predictNextCategory(this.history);
+            // 2. Deterministic target category selection (SAME logic as encoder)
+            const targetCategory = await this.selectTargetCategory(baseType);
 
-            // 3. SST Prediction (Sync with encoder)
-            let targetCategory = baseType;
-
-            try {
-                if (predictedNext && predictedNext !== 'UNKNOWN') {
-                    // PROFESSIONAL UPGRADE: Synchronized Adaptive Jitter
-                    // Replicating the exact same jitter logic from the Encoder to maintain 1:1 sync.
-                    const historyStr = this.history.map(h => h[0]).join(':');
-                    const jitterHash = CryptoJS.HmacSHA256(historyStr, this.sessionKey).toString();
-                    const jitterFactor = parseInt(jitterHash.substring(0, 2), 16) % 10;
-
-                    if (predictedNext && predictedNext !== 'UNKNOWN' && jitterFactor > 2) {
-                        targetCategory = predictedNext;
-                    } else if (jitterFactor <= 2) {
-                        const decoys = ['HEADER_NAME', 'HEADER_VALUE', 'PATH'];
-                        targetCategory = decoys[jitterFactor % decoys.length];
-                    }
-                }
-            } catch (e) { }
-
-            // 4. Get Vocabulary
+            // 3. Get vocabulary for target category
             let vocabulary: string[] = [];
-
             if (targetCategory === 'HEADER_VALUE' && currentHeaderName) {
                 vocabulary = this.grammar.getVocabulary(targetCategory, currentHeaderName);
             } else {
                 vocabulary = this.grammar.getVocabulary(targetCategory);
             }
 
-            // 4. Decode Value
-            // Apply inverse mapping
+            // 4. Decode value using inverse mapping
             const originalValue = this.generator.unmapValue(baseType, t.value, vocabulary);
 
-            // 5. Update History & Context with ORIGINAL value
+            // 5. Update history with ORIGINAL value (mirrors encoder's history)
             this.history.push([baseType, originalValue]);
 
+            // 6. Track header name context
             if (baseType === 'HEADER_NAME') {
                 currentHeaderName = originalValue;
             }

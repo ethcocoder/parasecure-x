@@ -1,241 +1,181 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { HTTPTokenizer } from "../engine/tokenizer/http_tokenizer";
 import { ReversibleEncoder } from "../engine/encoder/reversible_encoder";
 import { ReversibleDecoder } from "../engine/decoder/reversible_decoder";
-import { Token } from "../engine/tokenizer/token";
+
+type AppState = "off" | "connecting" | "protected" | "error";
+
+const DEFAULT_PACKET = `GET /api/v2/users/profile HTTP/1.1\nHost: api.production.internal\nAuthorization: Bearer eyJhbGciOiJSUzI1NiJ9.payload.sig\nUser-Agent: Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36\nAccept: application/json\nAccept-Encoding: gzip, deflate, br\nConnection: keep-alive\nX-Request-ID: a1b2c3d4-e5f6-7890-abcd-ef1234567890`;
 
 export default function Home() {
-    // --- State Management ---
-    const [input, setInput] = useState(
-        "GET /api/user/profile HTTP/1.1\nHost: secure.internal.bank.com\nAuthorization: Bearer top-secret-token\nUser-Agent: SecureClient/1.0\nAccept: application/json"
-    );
-    const [status, setStatus] = useState("Standby");
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const [isActive, setIsActive] = useState(false);
-    const [encoded, setEncoded] = useState("");
-    const [decoded, setDecoded] = useState("");
-    const [logs, setLogs] = useState<{ id: number, msg: string, time: string }[]>([]);
-    const [sessionKey, setSessionKey] = useState("paradox-secure-alpha");
-    const logEndRef = useRef<HTMLDivElement>(null);
+    const [appState, setAppState] = useState<AppState>("off");
+    const [statusMsg, setStatusMsg] = useState("Tap to activate protection");
+    const [sessionKey] = useState("sovereign-key-alpha-2026");
+    const [lastResult, setLastResult] = useState<{ ok: boolean; encodeMs: number; decodeMs: number } | null>(null);
+    const runningRef = useRef(false);
 
-    // --- Helpers ---
-    const addLog = (msg: string) => {
-        setLogs((prev) => [
-            ...prev,
-            { id: Date.now(), msg, time: new Date().toLocaleTimeString().split(' ')[0] }
-        ]);
+    const statusConfig: Record<AppState, { color: string; glow: string; ring: string; dot: string; label: string }> = {
+        off: { color: "text-gray-400", glow: "", ring: "border-gray-700", dot: "bg-gray-600", label: "Not Protected" },
+        connecting: { color: "text-yellow-400", glow: "shadow-[0_0_60px_rgba(234,179,8,0.25)]", ring: "border-yellow-500/60", dot: "bg-yellow-400 animate-pulse", label: "Connecting..." },
+        protected: { color: "text-emerald-400", glow: "shadow-[0_0_80px_rgba(52,211,153,0.3)]", ring: "border-emerald-500/70", dot: "bg-emerald-400", label: "Protected" },
+        error: { color: "text-red-400", glow: "shadow-[0_0_60px_rgba(239,68,68,0.25)]", ring: "border-red-500/60", dot: "bg-red-500", label: "Connection Failed" },
     };
 
-    useEffect(() => {
-        logEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [logs]);
+    const cfg = statusConfig[appState];
 
-    // --- Core Logic ---
-    const toggleEngine = async () => {
-        if (isActive) {
-            setIsActive(false);
-            setStatus("Standby");
-            addLog("[SYSTEM] Engine Deactivated.");
+    const toggle = useCallback(async () => {
+        if (runningRef.current) return;
+
+        if (appState === "protected") {
+            setAppState("off");
+            setStatusMsg("Tap to activate protection");
+            setLastResult(null);
             return;
         }
 
-        setIsActive(true);
-        setStatus("Activating...");
-        setLogs([]);
-        addLog("[Sovereign] Initializing ParaSecure Paradox Core...");
+        runningRef.current = true;
+        setAppState("connecting");
+        setStatusMsg("Establishing sovereign link...");
+        setLastResult(null);
 
         try {
             const timestamp = Math.floor(Date.now() / 1000);
             const tokenizer = new HTTPTokenizer(sessionKey);
+            const tokens = tokenizer.tokenize(DEFAULT_PACKET);
 
-            // 1. Tokenize
-            addLog("[*] Tokenizing structural transitions...");
-            const tokens = tokenizer.tokenize(input);
-            addLog(`[+] Mapped ${tokens.length} structural tokens.`);
-
-            // 2. Encode (Neural Layer)
-            addLog("[*] Loading SST Model (ONNX)...");
             const encoder = new ReversibleEncoder(sessionKey, timestamp, "/models/sst_model.onnx");
             await encoder.init();
-
-            addLog("[*] Executing Neural Disguise...");
+            const t1 = performance.now();
             const encodedTokens = await encoder.encode(tokens);
-            const encodedStr = tokenizer.reconstruct(encodedTokens);
-            setEncoded(encodedStr);
-            addLog("[✓] Structural Camouflage Applied.");
+            const encodeMs = Math.round(performance.now() - t1);
 
-            // 3. Decode (Recovery)
-            addLog("[*] Synchronizing Decoder session...");
             const decoder = new ReversibleDecoder(sessionKey, timestamp, "/models/sst_model.onnx");
             await decoder.init();
-
-            addLog("[*] Reversing structural transformation...");
+            const t2 = performance.now();
             const decodedTokens = await decoder.decode(encodedTokens);
+            const decodeMs = Math.round(performance.now() - t2);
+
             const decodedStr = tokenizer.reconstruct(decodedTokens);
-            setDecoded(decodedStr);
-            addLog("[✓] Perfect Restoration Verified.");
+            const ok = decodedStr.trim() === DEFAULT_PACKET.trim();
 
-            // 4. Final Verification
-            if (decodedStr.trim() === input.trim()) {
-                addLog("[SUCCESS] 100% Data Integrity. Sovereign Link Stable. ✅");
-                setStatus("Active");
+            if (ok) {
+                setAppState("protected");
+                setStatusMsg("Your traffic is protected");
+                setLastResult({ ok: true, encodeMs, decodeMs });
             } else {
-                addLog("[ERROR] Data mismatch! Logic desync detected. ❌");
-                setStatus("Error");
-                setIsActive(false);
+                setAppState("error");
+                setStatusMsg("Verification failed. Tap to retry.");
+                setLastResult({ ok: false, encodeMs, decodeMs });
             }
-
-        } catch (e) {
-            addLog(`[CRITICAL] Engine Error: ${e}`);
-            setStatus("Error");
-            setIsActive(false);
+        } catch {
+            setAppState("error");
+            setStatusMsg("Could not connect. Tap to retry.");
+        } finally {
+            runningRef.current = false;
         }
-    };
+    }, [appState, sessionKey]);
 
     return (
-        <div className="flex min-h-screen bg-[#050505] text-gray-100 font-mono overflow-hidden">
+        <div className="flex flex-col min-h-screen bg-[#030303] text-white font-sans">
 
-            {/* --- SIDEBAR (Native Style) --- */}
-            <div className={`fixed inset-y-0 left-0 transform ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} md:relative md:translate-x-0 transition-transform duration-300 ease-in-out z-30 w-72 bg-[#0c0c0c] border-r border-[#1a1a1a] flex flex-col`}>
-                <div className="p-6 border-b border-[#1a1a1a]">
-                    <h2 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-500 tracking-tighter">
-                        PARASECURE
-                    </h2>
-                    <p className="text-[10px] text-gray-500 tracking-widest uppercase">Paradox Engine v1.0</p>
+            {/* ── Header ─────────────────────────────────────────────────────── */}
+            <header className="flex items-center justify-between px-6 pt-12 pb-4">
+                <div>
+                    <div className="text-base font-black tracking-tight bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
+                        ParaSecure
+                    </div>
+                    <div className="text-[10px] text-gray-600 tracking-widest uppercase">Paradox Engine</div>
                 </div>
-
-                <div className="flex-1 p-4 space-y-6 overflow-y-auto">
-                    <div>
-                        <label className="text-[10px] text-gray-500 uppercase font-bold mb-2 block">Developer</label>
-                        <div className="bg-[#151515] p-3 rounded-lg border border-[#222]">
-                            <p className="text-sm font-bold text-emerald-400">Natnael Ermiyas</p>
-                            <p className="text-[10px] text-gray-400 italic">Young Innovator & Developer</p>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className="text-[10px] text-gray-500 uppercase font-bold mb-2 block">Session Context</label>
-                        <input
-                            type="text"
-                            className="w-full bg-[#151515] border border-[#222] rounded p-2 text-xs text-cyan-400 focus:border-cyan-500 outline-none"
-                            value={sessionKey}
-                            onChange={(e) => setSessionKey(e.target.value)}
-                        />
-                    </div>
-
-                    <div className="pt-4 border-t border-[#1a1a1a]">
-                        <p className="text-[10px] text-gray-500 leading-relaxed">
-                            PAREE Engine utilizes Sovereign Structural Transformers to disguise packets as natural traffic while maintaining perfect bit-for-bit reversibility.
-                        </p>
-                    </div>
+                {/* Status dot */}
+                <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${cfg.dot}`} />
+                    <span className={`text-xs font-semibold ${cfg.color}`}>{cfg.label}</span>
                 </div>
+            </header>
 
-                <div className="p-6 text-[9px] text-gray-600 uppercase tracking-widest text-center border-t border-[#1a1a1a]">
-                    Built for the Sovereign Future
-                </div>
-            </div>
+            {/* ── Main ───────────────────────────────────────────────────────── */}
+            <main className="flex-1 flex flex-col items-center justify-center px-6 gap-10">
 
-            {/* --- MAIN CONTENT --- */}
-            <div className="flex-1 flex flex-col relative">
+                {/* Power button */}
+                <button
+                    onClick={toggle}
+                    disabled={appState === "connecting"}
+                    className={`
+            relative w-48 h-48 rounded-full border-4 flex flex-col items-center justify-center
+            transition-all duration-500 active:scale-95
+            ${cfg.ring} ${cfg.glow}
+            ${appState === "connecting" ? "opacity-70 cursor-not-allowed" : "cursor-pointer"}
+            bg-[#0a0a0a]
+          `}
+                    aria-label="Toggle protection"
+                >
+                    {/* Spinning ring when connecting */}
+                    {appState === "connecting" && (
+                        <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-yellow-400 animate-spin" />
+                    )}
 
-                {/* Header / Mobile Toggle */}
-                <div className="h-16 border-b border-[#1a1a1a] flex items-center justify-between px-6 bg-[#050505]/80 backdrop-blur-md sticky top-0 z-20">
-                    <button className="md:hidden text-emerald-400" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
-                        {isSidebarOpen ? "✕" : "☰"}
-                    </button>
-                    <div className="flex items-center space-x-2">
-                        <div className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]' : 'bg-red-500'}`}></div>
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{status}</span>
-                    </div>
-                    <div className="text-[10px] text-gray-600 hidden md:block">NATNAEL ERMIYAS // INNOVATION LAB</div>
-                </div>
+                    {/* Power icon */}
+                    <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className={`w-16 h-16 transition-colors duration-500 ${cfg.color}`}
+                    >
+                        <path d="M12 2v6" />
+                        <path d="M4.93 4.93a10 10 0 1 0 14.14 0" />
+                    </svg>
 
-                <div className="flex-1 p-6 overflow-y-auto space-y-8 max-w-5xl mx-auto w-full">
+                    <span className={`text-[10px] font-bold tracking-[0.2em] uppercase mt-2 transition-colors duration-500 ${cfg.color}`}>
+                        {appState === "off" ? "Tap to start" : appState === "connecting" ? "Wait..." : appState === "protected" ? "Tap to stop" : "Retry"}
+                    </span>
+                </button>
 
-                    {/* --- CENTRAL POWER UNIT --- */}
-                    <div className="flex flex-col items-center justify-center py-10">
-                        <button
-                            onClick={toggleEngine}
-                            className={`relative group w-48 h-48 rounded-full flex flex-col items-center justify-center transition-all duration-500 shadow-2xl
-                                ${isActive
-                                    ? 'bg-emerald-950/30 border-4 border-emerald-500 shadow-[0_0_50px_-12px_rgba(16,185,129,0.5)]'
-                                    : 'bg-[#0c0c0c] border-4 border-[#222] hover:border-emerald-700'
-                                }`}
-                        >
-                            <div className={`text-4xl mb-2 transition-transform duration-500 ${isActive ? 'scale-110' : 'group-hover:scale-105'}`}>
-                                {isActive ? '⚡' : '⏻'}
-                            </div>
-                            <span className={`text-[10px] font-black uppercase tracking-[0.2em] transition-colors duration-500
-                                ${isActive ? 'text-emerald-400' : 'text-gray-600 group-hover:text-emerald-600'}`}>
-                                {isActive ? 'Paradox Active' : 'Activate PX'}
-                            </span>
+                {/* Status message */}
+                <p className={`text-sm text-center transition-colors duration-500 ${cfg.color}`}>
+                    {statusMsg}
+                </p>
 
-                            {/* Decorative Rings */}
-                            <div className={`absolute -inset-4 rounded-full border border-emerald-500/10 transition-transform duration-[3s] linear infinite
-                                ${isActive ? 'animate-[spin_10s_linear_infinite]' : ''}`}></div>
-                        </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Input Area */}
-                        <div className="space-y-3">
-                            <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Target Packet (Original)</h3>
-                            <textarea
-                                className="w-full h-48 bg-[#0c0c0c] border border-[#1a1a1a] rounded-xl p-4 text-xs font-mono text-cyan-400 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/20 outline-none transition-all"
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                                placeholder="Paste HTTP request here..."
-                            />
+                {/* Stats — only shown when protected, minimal */}
+                {appState === "protected" && lastResult?.ok && (
+                    <div className="w-full max-w-xs bg-[#0a0a0a] border border-white/5 rounded-2xl p-5 space-y-3">
+                        <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-500">Encryption</span>
+                            <span className="text-xs font-semibold text-emerald-400">AES-256 + HMAC</span>
                         </div>
-
-                        {/* Obfuscated Area */}
-                        <div className="space-y-3">
-                            <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Sovereign Disguise (Encoded)</h3>
-                            <div className="w-full h-48 bg-[#0c0c0c] border border-[#1a1a1a] rounded-xl p-4 text-xs font-mono text-amber-500 overflow-auto whitespace-pre">
-                                {encoded || "// Waiting for mobilization..."}
-                            </div>
+                        <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-500">Camouflage</span>
+                            <span className="text-xs font-semibold text-emerald-400">Active</span>
                         </div>
-                    </div>
-
-                    {/* --- REAL-TIME TERMINAL --- */}
-                    <div className="bg-[#080808] border border-[#1a1a1a] rounded-xl shadow-2xl overflow-hidden flex flex-col h-80">
-                        <div className="bg-[#111] px-4 py-2 border-b border-[#1a1a1a] flex justify-between items-center">
-                            <div className="flex space-x-2">
-                                <div className="w-2.5 h-2.5 rounded-full bg-red-900"></div>
-                                <div className="w-2.5 h-2.5 rounded-full bg-amber-900"></div>
-                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-900"></div>
-                            </div>
-                            <span className="text-[9px] font-bold text-gray-500 tracking-tighter">PARASECURE_CORE_STREAM</span>
+                        <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-500">Latency</span>
+                            <span className="text-xs font-semibold text-cyan-400">{lastResult.encodeMs + lastResult.decodeMs}ms</span>
                         </div>
-                        <div className="flex-1 p-4 overflow-y-auto space-y-1 scrollbar-hide">
-                            {logs.length === 0 && <div className="text-gray-700 italic text-[10px]">// System initialized. Awaiting user activation...</div>}
-                            {logs.map((log) => (
-                                <div key={log.id} className="flex space-x-3 text-[10px]">
-                                    <span className="text-gray-700 shrink-0">[{log.time}]</span>
-                                    <span className={`${log.msg.includes('[SUCCESS]') || log.msg.includes('[✓]') ? 'text-emerald-400' : 'text-gray-400'}`}>
-                                        {log.msg}
-                                    </span>
-                                </div>
-                            ))}
-                            <div ref={logEndRef} />
+                        <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-500">Integrity</span>
+                            <span className="text-xs font-semibold text-emerald-400">✓ Verified</span>
                         </div>
                     </div>
+                )}
 
-                    {/* Bottom Info */}
-                    <div className="flex flex-col md:flex-row justify-between items-center py-6 text-[10px] text-gray-600 gap-4">
-                        <div className="flex items-center space-x-4">
-                            <span>ARCH: SST-Uv3</span>
-                            <span>INFERENCE: ONNXWASM</span>
-                        </div>
-                        <div className="text-center md:text-right">
-                            © 2026 ParaSecure Paradox. Crafted by <span className="text-gray-400 font-bold">Natnael Ermiyas</span>.
-                        </div>
+                {/* Error state hint */}
+                {appState === "error" && (
+                    <div className="w-full max-w-xs bg-red-950/30 border border-red-500/20 rounded-2xl p-4 text-center">
+                        <p className="text-xs text-red-400">Engine verification failed. Please tap to retry.</p>
                     </div>
+                )}
+            </main>
 
-                </div>
-            </div>
+            {/* ── Footer ─────────────────────────────────────────────────────── */}
+            <footer className="px-6 pb-10 text-center">
+                <p className="text-[10px] text-gray-700">
+                    Built by <span className="text-gray-500 font-semibold">Natnael Ermiyas</span>
+                </p>
+            </footer>
         </div>
     );
 }
