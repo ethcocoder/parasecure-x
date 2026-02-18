@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.parasecure.paree',
-  appName: 'PareeMobile',
+  appId: 'com.parasecure.paradox',
+  appName: 'ParaSecure Paradox',
   webDir: 'out'
 };
 

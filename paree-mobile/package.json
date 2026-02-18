@@ -1,5 +1,5 @@
 {
-  "name": "paree-mobile",
+  "name": "parasecure-paradox",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -19,6 +19,7 @@
     "react-dom": "19.2.3"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@tailwindcss/postcss": "^4",
     "@types/crypto-js": "^4.2.2",
     "@types/node": "^20.19.33",
