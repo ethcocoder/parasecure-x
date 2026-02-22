@@ -1,181 +1,114 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
-import { HTTPTokenizer } from "../engine/tokenizer/http_tokenizer";
-import { ReversibleEncoder } from "../engine/encoder/reversible_encoder";
-import { ReversibleDecoder } from "../engine/decoder/reversible_decoder";
+import { useEngine } from "@/src/context/EngineContext";
 
-type AppState = "off" | "connecting" | "protected" | "error";
+export default function Dashboard() {
+    const { appState, statusMsg, lastResult, toggle } = useEngine();
 
-const DEFAULT_PACKET = `GET /api/v2/users/profile HTTP/1.1\nHost: api.production.internal\nAuthorization: Bearer eyJhbGciOiJSUzI1NiJ9.payload.sig\nUser-Agent: Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36\nAccept: application/json\nAccept-Encoding: gzip, deflate, br\nConnection: keep-alive\nX-Request-ID: a1b2c3d4-e5f6-7890-abcd-ef1234567890`;
-
-export default function Home() {
-    const [appState, setAppState] = useState<AppState>("off");
-    const [statusMsg, setStatusMsg] = useState("Tap to activate protection");
-    const [sessionKey] = useState("sovereign-key-alpha-2026");
-    const [lastResult, setLastResult] = useState<{ ok: boolean; encodeMs: number; decodeMs: number } | null>(null);
-    const runningRef = useRef(false);
-
-    const statusConfig: Record<AppState, { color: string; glow: string; ring: string; dot: string; label: string }> = {
-        off: { color: "text-gray-400", glow: "", ring: "border-gray-700", dot: "bg-gray-600", label: "Not Protected" },
-        connecting: { color: "text-yellow-400", glow: "shadow-[0_0_60px_rgba(234,179,8,0.25)]", ring: "border-yellow-500/60", dot: "bg-yellow-400 animate-pulse", label: "Connecting..." },
-        protected: { color: "text-emerald-400", glow: "shadow-[0_0_80px_rgba(52,211,153,0.3)]", ring: "border-emerald-500/70", dot: "bg-emerald-400", label: "Protected" },
-        error: { color: "text-red-400", glow: "shadow-[0_0_60px_rgba(239,68,68,0.25)]", ring: "border-red-500/60", dot: "bg-red-500", label: "Connection Failed" },
-    };
-
-    const cfg = statusConfig[appState];
-
-    const toggle = useCallback(async () => {
-        if (runningRef.current) return;
-
-        if (appState === "protected") {
-            setAppState("off");
-            setStatusMsg("Tap to activate protection");
-            setLastResult(null);
-            return;
-        }
-
-        runningRef.current = true;
-        setAppState("connecting");
-        setStatusMsg("Establishing sovereign link...");
-        setLastResult(null);
-
-        try {
-            const timestamp = Math.floor(Date.now() / 1000);
-            const tokenizer = new HTTPTokenizer(sessionKey);
-            const tokens = tokenizer.tokenize(DEFAULT_PACKET);
-
-            const encoder = new ReversibleEncoder(sessionKey, timestamp, "/models/sst_model.onnx");
-            await encoder.init();
-            const t1 = performance.now();
-            const encodedTokens = await encoder.encode(tokens);
-            const encodeMs = Math.round(performance.now() - t1);
-
-            const decoder = new ReversibleDecoder(sessionKey, timestamp, "/models/sst_model.onnx");
-            await decoder.init();
-            const t2 = performance.now();
-            const decodedTokens = await decoder.decode(encodedTokens);
-            const decodeMs = Math.round(performance.now() - t2);
-
-            const decodedStr = tokenizer.reconstruct(decodedTokens);
-            const ok = decodedStr.trim() === DEFAULT_PACKET.trim();
-
-            if (ok) {
-                setAppState("protected");
-                setStatusMsg("Your traffic is protected");
-                setLastResult({ ok: true, encodeMs, decodeMs });
-            } else {
-                setAppState("error");
-                setStatusMsg("Verification failed. Tap to retry.");
-                setLastResult({ ok: false, encodeMs, decodeMs });
-            }
-        } catch {
-            setAppState("error");
-            setStatusMsg("Could not connect. Tap to retry.");
-        } finally {
-            runningRef.current = false;
-        }
-    }, [appState, sessionKey]);
+    const isProtected = appState === "protected";
+    const isConnecting = appState === "connecting";
+    const isError = appState === "error";
 
     return (
-        <div className="flex flex-col min-h-screen bg-[#030303] text-white font-sans">
+        <div className="flex-1 flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] lg:min-h-screen px-6 py-12 lg:py-20 animate-in fade-in duration-1000">
 
-            {/* ── Header ─────────────────────────────────────────────────────── */}
-            <header className="flex items-center justify-between px-6 pt-12 pb-4">
-                <div>
-                    <div className="text-base font-black tracking-tight bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
-                        ParaSecure
-                    </div>
-                    <div className="text-[10px] text-gray-600 tracking-widest uppercase">Paradox Engine</div>
+            {/* Background Ambience (Adaptive Size) */}
+            <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] lg:w-[600px] h-[90vw] lg:h-[600px] blur-[100px] lg:blur-[140px] transition-colors duration-1000 -z-10 opacity-30 ${isProtected ? 'bg-emerald-500/40' :
+                    isError ? 'bg-red-500/30' :
+                        isConnecting ? 'bg-cyan-500/30 animate-pulse' : 'bg-white/5'
+                }`} />
+
+            {/* Main Core Container (Adaptive Gap) */}
+            <div className="w-full max-w-lg flex flex-col items-center gap-10 lg:gap-16 relative">
+
+                {/* System ID Tag (Responsive Text) */}
+                <div className="px-5 lg:px-6 py-2 rounded-full border border-white/[0.03] bg-white/[0.02] backdrop-blur-md shadow-2xl animate-in slide-in-from-top-4 duration-700">
+                    <p className="text-[9px] lg:text-[10px] font-black uppercase tracking-[0.4em] lg:tracking-[0.5em] text-gray-400 flex items-center gap-2 lg:gap-3 whitespace-nowrap">
+                        <span className={`w-1 h-1 rounded-full ${isProtected ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,1)]' : 'bg-gray-700'}`} />
+                        System Status: <span className={isProtected ? 'text-emerald-400' : 'text-gray-200'}>{appState.toUpperCase()}</span>
+                    </p>
                 </div>
-                {/* Status dot */}
-                <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${cfg.dot}`} />
-                    <span className={`text-xs font-semibold ${cfg.color}`}>{cfg.label}</span>
-                </div>
-            </header>
 
-            {/* ── Main ───────────────────────────────────────────────────────── */}
-            <main className="flex-1 flex flex-col items-center justify-center px-6 gap-10">
+                {/* The Power Core (Fluid UI Design) */}
+                <div className="relative group p-4 scale-[0.85] lg:scale-100 transition-transform duration-700">
+                    {/* Outer Ring Glow */}
+                    <div className={`absolute inset-0 rounded-full blur-[40px] transition-all duration-1000 ${isProtected ? 'bg-emerald-500/30 opacity-100' : 'bg-white/5 opacity-0'
+                        }`} />
 
-                {/* Power button */}
-                <button
-                    onClick={toggle}
-                    disabled={appState === "connecting"}
-                    className={`
-            relative w-48 h-48 rounded-full border-4 flex flex-col items-center justify-center
-            transition-all duration-500 active:scale-95
-            ${cfg.ring} ${cfg.glow}
-            ${appState === "connecting" ? "opacity-70 cursor-not-allowed" : "cursor-pointer"}
-            bg-[#0a0a0a]
-          `}
-                    aria-label="Toggle protection"
-                >
-                    {/* Spinning ring when connecting */}
-                    {appState === "connecting" && (
-                        <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-yellow-400 animate-spin" />
-                    )}
-
-                    {/* Power icon */}
-                    <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className={`w-16 h-16 transition-colors duration-500 ${cfg.color}`}
+                    <button
+                        onClick={toggle}
+                        disabled={isConnecting}
+                        className={`
+                    relative w-64 h-64 lg:w-72 lg:h-72 rounded-full flex flex-col items-center justify-center transition-all duration-1000
+                    border-[1px] shadow-[0_0_80px_rgba(0,0,0,0.5)] active:scale-[0.96] overflow-hidden
+                    ${isProtected
+                                ? 'border-emerald-500/20 bg-[#080808]'
+                                : 'border-white/[0.05] bg-[#050505] hover:border-white/10 shadow-none'}
+                `}
                     >
-                        <path d="M12 2v6" />
-                        <path d="M4.93 4.93a10 10 0 1 0 14.14 0" />
-                    </svg>
+                        {/* Internal Hardware Texture */}
+                        <div className="absolute inset-0 opacity-20 pointer-events-none">
+                            <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,_transparent_40%,_black_95%)]" />
+                            <div className="w-full h-full bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] scale-150" />
+                        </div>
 
-                    <span className={`text-[10px] font-bold tracking-[0.2em] uppercase mt-2 transition-colors duration-500 ${cfg.color}`}>
-                        {appState === "off" ? "Tap to start" : appState === "connecting" ? "Wait..." : appState === "protected" ? "Tap to stop" : "Retry"}
-                    </span>
-                </button>
+                        <div className="absolute inset-[10px] lg:inset-[15px] rounded-full border border-white/[0.02] bg-gradient-to-br from-white/[0.03] to-transparent shadow-inner" />
 
-                {/* Status message */}
-                <p className={`text-sm text-center transition-colors duration-500 ${cfg.color}`}>
-                    {statusMsg}
-                </p>
+                        <div className="relative flex flex-col items-center gap-4 lg:gap-5 z-20">
+                            <div className={`
+                        text-4xl lg:text-5xl transition-all duration-1000 italic font-black 
+                        ${isProtected ? 'text-emerald-500 drop-shadow-[0_0_15px_rgba(52,211,153,0.5)]' : 'text-gray-800'}
+                    `}>
+                                {isConnecting ? '...' : 'PX'}
+                            </div>
 
-                {/* Stats — only shown when protected, minimal */}
-                {appState === "protected" && lastResult?.ok && (
-                    <div className="w-full max-w-xs bg-[#0a0a0a] border border-white/5 rounded-2xl p-5 space-y-3">
-                        <div className="flex justify-between items-center">
-                            <span className="text-xs text-gray-500">Encryption</span>
-                            <span className="text-xs font-semibold text-emerald-400">AES-256 + HMAC</span>
+                            <div className="flex flex-col items-center gap-1 opacity-80">
+                                <span className={`text-[10px] lg:text-[11px] font-black uppercase tracking-[0.4em] ${isProtected ? 'text-emerald-400' : 'text-gray-500'}`}>
+                                    {isProtected ? 'Disarm' : 'Activate'}
+                                </span>
+                                <div className={`w-8 h-[2px] rounded-full transition-all duration-1000 ${isProtected ? 'bg-emerald-500' : 'bg-gray-800'}`} />
+                            </div>
                         </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-xs text-gray-500">Camouflage</span>
-                            <span className="text-xs font-semibold text-emerald-400">Active</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-xs text-gray-500">Latency</span>
-                            <span className="text-xs font-semibold text-cyan-400">{lastResult.encodeMs + lastResult.decodeMs}ms</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-xs text-gray-500">Integrity</span>
-                            <span className="text-xs font-semibold text-emerald-400">✓ Verified</span>
-                        </div>
+
+                        {isConnecting && (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="w-full h-full border-[10px] border-cyan-500/20 rounded-full animate-ping opacity-20" />
+                            </div>
+                        )}
+                    </button>
+                </div>
+
+                {/* Telemetry Display (Responsive Density) */}
+                <div className="w-full space-y-6 lg:space-y-8 mt-2 lg:mt-4">
+                    <div className="text-center space-y-3">
+                        <p className={`text-[12px] lg:text-[13px] font-bold uppercase tracking-[0.3em] transition-colors duration-500 drop-shadow-sm ${isError ? 'text-red-400' : 'text-white/80'}`}>
+                            {statusMsg}
+                        </p>
+                        <div className="h-px w-24 bg-gradient-to-r from-transparent via-white/10 to-transparent mx-auto" />
                     </div>
-                )}
 
-                {/* Error state hint */}
-                {appState === "error" && (
-                    <div className="w-full max-w-xs bg-red-950/30 border border-red-500/20 rounded-2xl p-4 text-center">
-                        <p className="text-xs text-red-400">Engine verification failed. Please tap to retry.</p>
-                    </div>
-                )}
-            </main>
+                    {isProtected && lastResult && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full animate-in slide-in-from-bottom-6 duration-1000 px-4 lg:px-0">
+                            <div className="bg-[#050505] border border-white/[0.03] p-5 lg:p-6 rounded-[1.5rem] lg:rounded-[2rem] shadow-xl space-y-1 group hover:bg-white/[0.015] transition-all flex flex-col justify-center">
+                                <p className="text-[8px] lg:text-[9px] text-gray-500 font-black uppercase tracking-[0.3em] group-hover:text-emerald-500 transition-colors">Integrity</p>
+                                <p className="text-xs lg:text-sm font-black text-white/90 uppercase tracking-widest">SST-Verified</p>
+                            </div>
+                            <div className="bg-[#050505] border border-white/[0.03] p-5 lg:p-6 rounded-[1.5rem] lg:rounded-[2rem] shadow-xl space-y-1 group hover:bg-white/[0.015] transition-all flex flex-col justify-center">
+                                <p className="text-[8px] lg:text-[9px] text-gray-500 font-black uppercase tracking-[0.3em] group-hover:text-cyan-500 transition-colors">Session Hash</p>
+                                <p className="text-xs lg:text-sm font-mono text-cyan-500/70 font-bold truncate">A1-FX90...</p>
+                            </div>
+                        </div>
+                    )}
+                </div>
 
-            {/* ── Footer ─────────────────────────────────────────────────────── */}
-            <footer className="px-6 pb-10 text-center">
-                <p className="text-[10px] text-gray-700">
-                    Built by <span className="text-gray-500 font-semibold">Natnael Ermiyas</span>
-                </p>
-            </footer>
+                {/* System Capabilities Footer (Stacked on mobile) */}
+                <div className="flex flex-wrap justify-center gap-6 lg:gap-10 opacity-30 mt-6 lg:mt-8 px-4">
+                    {['TLS-13', 'PX-SST', 'AES-GCM'].map(cap => (
+                        <span key={cap} className="text-[8px] lg:text-[9px] font-black uppercase tracking-[0.4em] lg:tracking-[0.5em] text-gray-400 text-center">{cap}</span>
+                    ))}
+                </div>
+
+            </div>
         </div>
     );
 }
