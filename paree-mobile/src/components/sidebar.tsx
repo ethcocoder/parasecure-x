@@ -144,13 +144,14 @@ export default function SidebarLayout({ children, credits }: SidebarProps) {
                 lg:hidden fixed inset-0 bg-black/95 backdrop-blur-2xl z-[50] transition-all duration-500
                 ${isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}
             `}>
-                <div className="flex flex-col h-full pt-32 pb-12 px-10">
-                    <div className="mb-12">
+                <div className="flex flex-col h-full justify-center px-10">
+                    <div className="mb-10 lg:mb-12">
                         <h2 className="text-[10px] font-black text-emerald-500/60 uppercase tracking-[0.6em] mb-4">Navigation Hub</h2>
                         <div className="w-12 h-[2px] bg-emerald-500/20" />
                     </div>
 
-                    <nav className="flex flex-col gap-10">
+                    <nav className="flex flex-col gap-8 lg:gap-10">
+
                         {navItems.map((item, idx) => {
                             const isActive = pathname === item.href;
                             return (

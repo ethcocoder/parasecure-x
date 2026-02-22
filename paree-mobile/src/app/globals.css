@@ -33,3 +33,53 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #222;
 }
+
+/* Premium Cyber Glassmorphism */
+.glass {
+  background: rgba(255, 255, 255, 0.01);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.glass-emerald {
+  background: rgba(16, 185, 129, 0.02);
+  backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid rgba(16, 185, 129, 0.05);
+}
+
+.glass-cyan {
+  background: rgba(6, 182, 212, 0.02);
+  backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid rgba(6, 182, 212, 0.05);
+}
+
+/* Cyber Matrix Pattern */
+.cyber-grid {
+  background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.cyber-dots {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Base Animations */
+@keyframes pulse-soft {
+  0%, 100% { opacity: 0.1; }
+  50% { opacity: 0.2; }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 4s ease-in-out infinite;
+}
+
+/* Responsive Fluid Adjustments */
+@media (max-width: 640px) {
+  .fluid-px { padding-left: 1rem; padding-right: 1rem; }
+  .fluid-py { padding-top: 2rem; padding-bottom: 2rem; }
+  .mobile-text-tight { letter-spacing: 0.1em; }
+}
+

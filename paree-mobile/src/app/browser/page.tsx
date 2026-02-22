@@ -4,10 +4,11 @@ import { useState } from "react";
 import { useEngine } from "@/src/context/EngineContext";
 import SecurityLockout from "@/src/components/SecurityLockout";
 import SecureWindow from "@/src/components/SecureWindow";
-import SecureResultsUI from "@/src/components/SecureResultsUI";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function Browser() {
     const [input, setInput] = useState("what is physics");
+
     const [activeUrl, setActiveUrl] = useState("");
     const [isProcessing, setIsProcessing] = useState(false);
     const [isWindowOpen, setIsWindowOpen] = useState(false);
@@ -36,10 +37,13 @@ export default function Browser() {
         const isUrl = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/.test(target);
 
         if (!isUrl && !target.includes("://")) {
-            target = `https://www.google.com/search?q=${encodeURIComponent(target)}`;
+            // Use DuckDuckGo — works perfectly in Android WebViews, no CAPTCHA.
+            // Google blocks WebView containers and requires reCAPTCHA repeatedly.
+            target = `https://duckduckgo.com/?q=${encodeURIComponent(target)}&ia=web`;
         } else if (!target.startsWith("http")) {
             target = "https://" + target;
         }
+
 
         try {
             const parsed = new URL(target);
@@ -72,7 +76,12 @@ export default function Browser() {
     };
 
     return (
-        <div className="flex-1 flex flex-col w-full max-w-7xl mx-auto py-8 lg:py-12 px-6 lg:px-8 h-full animate-in fade-in duration-1000 gap-8 lg:gap-10 relative overflow-x-hidden">
+        <div className="flex-1 flex flex-col w-full max-w-7xl mx-auto py-8 lg:py-12 px-6 lg:px-8 h-full relative overflow-hidden">
+
+
+            {/* Cyber Matrix Decor */}
+            <div className="absolute inset-0 cyber-grid opacity-[0.02] pointer-events-none" />
+            <div className="absolute inset-0 cyber-dots opacity-[0.05] pointer-events-none animate-pulse-soft" />
 
             {/* Security Lockout Overlay */}
             {isLocked && (
@@ -82,7 +91,7 @@ export default function Browser() {
                 />
             )}
 
-            {/* Integrated Secure Viewport (High-Level Controller) */}
+            {/* Integrated Secure Viewport Modal */}
             <SecureWindow
                 url={activeUrl}
                 isOpen={isWindowOpen}
@@ -91,178 +100,187 @@ export default function Browser() {
                 encryptionKey={engineTrace?.stats ? `SST-X-${engineTrace.stats.encodeMs}MS` : "SST-IDLE"}
             />
 
-            {/* Precision Search Input (Full Responsive) */}
-            <div className="flex flex-col items-center gap-6 lg:gap-8">
-                <div className="w-full max-w-3xl flex flex-col sm:flex-row items-center bg-[#050505] border border-white/[0.03] p-1.5 rounded-[1.75rem] shadow-2xl relative group focus-within:border-emerald-500/20 transition-all border-t-white/[0.08]">
-                    <div className="absolute inset-0 bg-emerald-500/[0.01] rounded-[1.75rem] blur-2xl opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none" />
+            {/* Precision Search Input Section - Centered in 'Medium' */}
+            <motion.div
+                initial={{ y: -20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                className={`flex flex-col items-center justify-center gap-12 w-full max-w-4xl mx-auto px-4 transition-all duration-700 ${activeUrl ? 'py-12' : 'flex-1'}`}
+            >
+                <div className="w-full flex flex-row items-center bg-[#050505] border border-white/[0.05] p-2.5 rounded-[2.5rem] shadow-[0_40px_80px_rgba(0,0,0,0.6)] relative group focus-within:border-emerald-500/40 transition-all border-t-white/[0.1] gap-3">
+                    <div className="absolute inset-0 bg-emerald-500/[0.02] rounded-[2.5rem] blur-3xl opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none" />
 
-                    <div className="w-full sm:flex-1 flex items-center bg-white/[0.015] rounded-2xl px-5 lg:px-6 py-4 transition-colors">
-                        <span className="hidden xs:block text-gray-700 mr-4 lg:mr-5 text-base lg:text-lg opacity-40">🌐</span>
-                        <form onSubmit={handleGo} className="flex-1">
-                            <input
-                                type="text"
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                                placeholder=" keyword or URL..."
-                                disabled={isLocked}
-                                className="w-full bg-transparent text-[13px] lg:text-[14px] text-white/90 font-sans outline-none border-none focus:ring-0 placeholder:text-gray-700 font-medium tracking-tight disabled:opacity-50"
-                            />
-                        </form>
-                    </div>
+                    <form onSubmit={handleGo} className="flex-1 min-w-0 flex items-center bg-white/[0.02] rounded-full px-6 py-4 border border-white/[0.02]">
+                        <input
+                            type="text"
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            placeholder="Quantum Vector Search..."
+                            disabled={isLocked}
+                            className="w-full bg-transparent text-sm text-white font-sans outline-none border-none focus:ring-0 placeholder:text-gray-700 font-bold disabled:opacity-50 min-w-0 tracking-tight"
+                        />
+                    </form>
                     <button
                         onClick={handleGo}
                         disabled={isProcessing || !input || isLocked}
                         className={`
-                w-full sm:w-auto px-10 py-4 rounded-2xl text-[9px] lg:text-[10px] font-black uppercase tracking-[0.4em] transition-all mt-2 sm:mt-0 sm:ml-2
-                ${isProcessing || isLocked ? 'bg-emerald-500/10 text-emerald-500/40 cursor-not-allowed border border-emerald-500/10' : 'bg-emerald-500 text-black hover:bg-emerald-400 active:scale-95 shadow-lg'}
-              `}
+                            flex-shrink-0 px-8 py-4 rounded-full text-[10px] font-black uppercase tracking-[0.4em] transition-all
+                            ${isProcessing || isLocked
+                                ? 'bg-emerald-500/10 text-emerald-500/40 cursor-not-allowed'
+                                : 'bg-emerald-500 text-black hover:bg-emerald-400 active:scale-95 shadow-[0_10px_30px_rgba(16,185,129,0.3)]'}
+                        `}
                     >
-                        {isProcessing ? 'TUNNEL' : 'SECURE'}
+                        {isProcessing ? '...' : 'RUN'}
                     </button>
                 </div>
-                <div className="flex flex-wrap items-center justify-center gap-4 lg:gap-6 text-[8px] lg:text-[9px] text-gray-700 font-bold uppercase tracking-[0.25em] lg:tracking-[0.3em]">
-                    <span className="flex items-center gap-2"><div className="w-1 h-1 bg-emerald-500/40 rounded-full" /> Node: Alpha-2026</span>
-                    <span className="hidden xs:block w-1 h-1 rounded-full bg-gray-900" />
-                    <span className="text-emerald-500/40">Bijective Protocol Bridge</span>
+
+                <div className="flex flex-wrap items-center justify-center gap-8 text-[9px] text-gray-700 font-black uppercase tracking-[0.4em] opacity-40">
+                    <span className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                        ALPHA-SST BRIDGE
+                    </span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-gray-900" />
+                    <span className="text-emerald-500">Grammatic Masking: ON</span>
                 </div>
-            </div>
+            </motion.div>
 
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 min-h-0">
+            {/* Main Content Area - Only dominant when active */}
+            <div className={`grid grid-cols-1 lg:grid-cols-12 gap-10 min-h-0 transition-all duration-700 ${activeUrl ? 'flex-1 opacity-100' : 'h-0 opacity-0 overflow-hidden'}`}>
 
-                {/* Left: Preview Card (Adaptive Layout) */}
-                <div className="lg:col-span-8 bg-[#050505] rounded-[2rem] lg:rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col border border-white/[0.03] relative animate-in zoom-in-[0.98] duration-1000 min-h-[400px] border-t-white/[0.08]">
 
-                    <div className="h-14 bg-white/[0.015] border-b border-white/[0.03] flex items-center px-6 lg:px-8 gap-4 flex-none">
-                        <div className="hidden xs:flex gap-1.5 flex-none opacity-20">
+                {/* Left: Preview & Launch Card */}
+                <motion.div
+                    initial={{ x: -20, opacity: 0 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    className="lg:col-span-8 bg-[#050505] rounded-[3rem] overflow-hidden shadow-2xl flex flex-col border border-white/[0.03] relative border-t-white/[0.08] min-h-[450px]"
+                >
+                    <div className="h-16 bg-white/[0.015] border-b border-white/[0.03] flex items-center px-8 gap-4 flex-none">
+                        <div className="hidden xs:flex gap-2 flex-none opacity-20">
                             <div className="w-2.5 h-2.5 rounded-full bg-white" />
                             <div className="w-2.5 h-2.5 rounded-full bg-white" />
                             <div className="w-2.5 h-2.5 rounded-full bg-white" />
                         </div>
-                        <div className="lg:ml-6 flex-1 max-w-lg bg-black/40 border border-white/[0.02] rounded-xl px-4 lg:px-5 py-1.5 flex items-center gap-3 overflow-hidden shadow-sm">
-                            <span className="text-emerald-500 text-[9px] lg:text-[10px]">🔒</span>
-                            <span className="text-[9px] lg:text-[10px] text-gray-500 font-mono truncate uppercase tracking-widest font-bold">
+                        <div className="lg:ml-6 flex-1 max-w-lg glass-cyan border-cyan-500/10 rounded-xl px-5 py-2 flex items-center gap-3 overflow-hidden shadow-inner">
+                            <span className="text-cyan-500 text-xs animate-pulse">🔒</span>
+                            <span className="text-[10px] text-gray-500 font-mono truncate uppercase tracking-widest font-black">
                                 {activeUrl ? new URL(activeUrl).hostname : "tunnel.sovereign.local"}
                             </span>
                         </div>
                     </div>
 
-                    <div className="flex-1 w-full relative overflow-hidden flex flex-col items-center justify-center">
-
-                        {activeUrl ? (
-                            <div className="w-full h-full flex flex-col animate-in slide-in-from-bottom-4 duration-700">
-                                <div className="flex-1 flex flex-col items-center justify-center p-8 lg:p-16 text-center">
-                                    <div className="w-20 h-20 lg:w-28 lg:h-28 mb-6 lg:mb-10 relative group">
-                                        <div className="w-full h-full bg-emerald-500/[0.03] rounded-[1.5rem] lg:rounded-[2rem] flex items-center justify-center border border-emerald-500/10 shadow-sm transition-transform duration-700 group-hover:scale-105">
-                                            <span className="text-emerald-500 text-3xl lg:text-4xl font-black italic tracking-tighter opacity-80">PX</span>
+                    <div className="flex-1 w-full relative overflow-hidden flex flex-col items-center justify-center p-12 lg:p-20">
+                        <AnimatePresence mode="wait">
+                            {activeUrl ? (
+                                <motion.div
+                                    key="ready"
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.95 }}
+                                    className="max-w-md w-full flex flex-col items-center text-center space-y-10"
+                                >
+                                    <div className="w-24 h-24 lg:w-32 lg:h-32 relative group">
+                                        <div className="w-full h-full glass-emerald rounded-[2rem] lg:rounded-[2.5rem] flex items-center justify-center border border-emerald-500/10 shadow-2xl transition-transform duration-700 group-hover:scale-105">
+                                            <span className="text-emerald-500 text-4xl lg:text-5xl font-black italic tracking-tighter opacity-80">PX</span>
                                         </div>
-                                        <div className="absolute inset-x-0 -bottom-4 h-1 bg-emerald-500/10 blur-xl transition-all group-hover:blur-2xl" />
                                     </div>
 
-                                    <div className="max-w-md space-y-4 lg:space-y-6">
-                                        <h3 className="text-xl lg:text-2xl font-black text-white tracking-tight uppercase italic">Vector Identified</h3>
-                                        <p className="text-gray-500 text-[11px] lg:text-[13px] leading-relaxed font-medium px-4">
-                                            Sovereign Tunnel is standing by for <span className="text-white font-black uppercase tracking-widest text-[10px] lg:text-[11px]">{new URL(activeUrl).hostname}</span>.
-                                            Encryption bridge is ready for launch.
+                                    <div className="space-y-6">
+                                        <h3 className="text-2xl lg:text-3xl font-black text-white tracking-tight uppercase italic">Secure Tunnel Ready</h3>
+                                        <p className="text-gray-500 text-xs lg:text-sm leading-relaxed font-bold uppercase tracking-widest opacity-60">
+                                            The bijective grammar bridge is established for {new URL(activeUrl).hostname}.
                                         </p>
-
-                                        <div className="pt-6 lg:pt-8 grid grid-cols-2 gap-3 lg:gap-4">
-                                            <div className="p-4 lg:p-5 rounded-2xl border border-white/[0.02] bg-white/[0.01] flex flex-col items-start gap-1">
-                                                <span className="text-[6px] lg:text-[7px] font-black text-gray-600 uppercase tracking-widest">Inference</span>
-                                                <span className="text-[11px] lg:text-[12px] font-black text-white/90 uppercase tracking-widest">{engineTrace?.stats.encodeMs} ms</span>
-                                            </div>
-                                            <div className="p-4 lg:p-5 rounded-2xl border border-white/[0.02] bg-white/[0.01] flex flex-col items-start gap-1">
-                                                <span className="text-[6px] lg:text-[7px] font-black text-gray-600 uppercase tracking-widest">Integrity</span>
-                                                <span className="text-[11px] lg:text-[12px] font-black text-emerald-500 uppercase tracking-widest">Verified</span>
-                                            </div>
-                                        </div>
-
-                                        <button
-                                            onClick={() => setIsWindowOpen(true)}
-                                            className="w-full mt-8 lg:mt-10 bg-emerald-500 text-black py-4 rounded-2xl text-[9px] lg:text-[10px] font-black uppercase tracking-[0.4em] hover:bg-emerald-400 transition-all shadow-2xl active:scale-[0.98]"
-                                        >
-                                            Launch Secure Window ↗
-                                        </button>
                                     </div>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center text-center opacity-30 gap-6 lg:gap-8">
-                                <div className="w-16 h-16 lg:w-20 lg:h-20 rounded-[1.5rem] lg:rounded-[1.75rem] border border-white/5 bg-white/[0.01] shadow-sm flex items-center justify-center">
-                                    <div className="text-white/20 text-2xl lg:text-3xl font-black italic tracking-tighter">PX</div>
-                                </div>
-                                <div className="space-y-2">
-                                    <h3 className="text-gray-400 text-[9px] lg:text-[11px] font-black uppercase tracking-[0.4em] lg:tracking-[0.5em]">Tunnel Idle</h3>
-                                    <p className="text-gray-700 text-[8px] lg:text-[9px] font-black uppercase tracking-[0.2em] lg:tracking-[0.3em]">Awaiting protocol vector</p>
-                                </div>
-                            </div>
-                        )}
+
+                                    <button
+                                        onClick={() => setIsWindowOpen(true)}
+                                        className="w-full bg-emerald-500 text-black py-5 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.4em] hover:bg-emerald-400 transition-all shadow-[0_20px_40px_rgba(16,185,129,0.2)] active:scale-[0.98]"
+                                    >
+                                        Launch Window ↗
+                                    </button>
+                                </motion.div>
+                            ) : (
+                                <motion.div
+                                    key="idle"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 0.3 }}
+                                    className="flex flex-col items-center gap-8"
+                                >
+                                    <div className="w-20 h-20 rounded-[2rem] glass flex items-center justify-center">
+                                        <span className="text-white/40 text-3xl font-black italic tracking-tighter">PX</span>
+                                    </div>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.5em] text-white">Awaiting Vector</p>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
 
                         {isProcessing && (
-                            <div className="absolute inset-0 bg-black/90 backdrop-blur-xl flex flex-col items-center justify-center z-20 animate-in fade-in duration-500 px-8 text-center">
-                                <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-[1rem] lg:rounded-2xl border-[2px] border-emerald-500/10 border-t-emerald-500 animate-[spin_0.8s_linear_infinite] mb-6 lg:mb-8" />
-                                <p className="text-[9px] lg:text-[10px] font-black text-white uppercase tracking-[0.4em] lg:tracking-[0.5em] animate-pulse">Establishing Bridge...</p>
+                            <div className="absolute inset-0 bg-black/95 backdrop-blur-3xl flex flex-col items-center justify-center z-20 px-10 text-center">
+                                <div className="w-12 h-12 rounded-2xl border-[3px] border-emerald-500/10 border-t-emerald-500 animate-[spin_0.8s_linear_infinite] mb-10" />
+                                <p className="text-[10px] font-black text-white uppercase tracking-[0.5em] animate-pulse">Establishing Bridge...</p>
                             </div>
                         )}
                     </div>
-                </div>
+                </motion.div>
 
-                {/* Right: Telemetry (Adaptive Stacking) */}
-                <div className="lg:col-span-4 flex flex-col gap-8 lg:gap-10 min-h-0">
-
-                    <div className="flex-1 bg-[#050505] border border-white/[0.03] rounded-[2rem] lg:rounded-[2.5rem] p-6 lg:p-8 flex flex-col shadow-2xl overflow-hidden relative border-t-white/[0.08] min-h-[300px]">
-                        <div className="p-2 px-4 lg:px-5 mb-6 lg:mb-8 rounded-full border border-white/[0.03] bg-white/[0.01] flex items-center gap-3 self-start">
-                            <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(34,211,238,1)]" />
-                            <h3 className="text-[8px] lg:text-[9px] text-gray-500 font-black uppercase tracking-[0.4em]">Sovereign Stream</h3>
+                {/* Right: Telemetry & Stats */}
+                <div className="lg:col-span-4 flex flex-col gap-10">
+                    <div className="flex-1 bg-[#050505] rounded-[3rem] p-8 flex flex-col shadow-2xl border border-white/[0.03] border-t-white/[0.08] relative overflow-hidden">
+                        <div className="p-3 px-6 mb-10 rounded-full glass self-start inline-flex items-center gap-3">
+                            <div className="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_10px_rgba(34,211,238,1)]" />
+                            <h3 className="text-[9px] text-gray-500 font-black uppercase tracking-[0.4em]">Protocol Stream</h3>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto scrollbar-hide space-y-8 lg:space-y-10">
-                            {!engineTrace ? (
-                                <div className="h-full flex flex-col items-center justify-center text-center opacity-20 gap-6">
-                                    <span className="text-2xl lg:text-3xl font-black italic tracking-tighter opacity-40">⏣</span>
-                                    <p className="text-[8px] lg:text-[9px] font-black uppercase tracking-[0.3em] leading-relaxed text-gray-700">Waiting for <br /> protocol vector</p>
-                                </div>
-                            ) : (
-                                <div className="space-y-8 lg:space-y-10 pb-4 animate-in slide-in-from-right-8 duration-1000">
-                                    <div className="space-y-4">
-                                        <p className="text-[8px] text-cyan-500/60 font-black uppercase tracking-[0.4em] px-1">Raw Protocol Matrix</p>
-                                        <div className="bg-white/[0.01] p-4 lg:p-6 rounded-xl lg:rounded-2xl border border-white/[0.03] font-mono text-[9px] lg:text-[10px] text-gray-600 leading-relaxed break-all selection:bg-cyan-500/20">
-                                            {engineTrace.original.trim()}
+                        <div className="flex-1 overflow-y-auto scrollbar-hide">
+                            <AnimatePresence mode="wait">
+                                {!engineTrace ? (
+                                    <motion.div
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 0.2 }}
+                                        className="h-full flex flex-col items-center justify-center text-center gap-6"
+                                    >
+                                        <span className="text-4xl">⏣</span>
+                                        <p className="text-[8px] font-black uppercase tracking-[0.3em]">No Active Tunnel</p>
+                                    </motion.div>
+                                ) : (
+                                    <motion.div
+                                        initial={{ x: 20, opacity: 0 }}
+                                        animate={{ x: 0, opacity: 1 }}
+                                        className="space-y-10"
+                                    >
+                                        <div className="space-y-4">
+                                            <p className="text-[8px] text-cyan-500/60 font-black uppercase tracking-[0.4em]">Inbound Vector</p>
+                                            <div className="bg-black/60 p-6 rounded-3xl border border-white/5 font-mono text-[10px] text-gray-600 break-all italic leading-relaxed">
+                                                {engineTrace.original}
+                                            </div>
                                         </div>
-                                    </div>
-
-                                    <div className="flex justify-center -my-3">
-                                        <div className="w-px h-8 lg:h-10 bg-emerald-500/10" />
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <p className="text-[8px] text-emerald-400/60 font-black uppercase tracking-[0.4em] px-1 flex items-center gap-2">
-                                            <span className="w-1 h-1 bg-emerald-500 rounded-full animate-pulse" /> Decoy Frame
-                                        </p>
-                                        <div className="bg-emerald-500/[0.01] p-4 lg:p-6 rounded-xl lg:rounded-2xl border border-emerald-500/10 font-mono text-[9px] lg:text-[10px] text-emerald-400/70 leading-relaxed break-all selection:bg-emerald-500/20 italic">
-                                            {engineTrace.decoy.trim()}
+                                        <div className="space-y-4">
+                                            <p className="text-[8px] text-emerald-500/60 font-black uppercase tracking-[0.4em]">SST Masking</p>
+                                            <div className="glass-emerald p-6 rounded-3xl border-emerald-500/10 font-mono text-[10px] text-emerald-500/60 break-all leading-relaxed font-bold">
+                                                {engineTrace.decoy}
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
-                            )}
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
                     </div>
 
-                    <div className="h-28 lg:h-32 bg-[#050505] border border-white/[0.03] rounded-[2rem] lg:rounded-[2.5rem] p-6 lg:p-8 flex items-center justify-between shadow-2xl relative overflow-hidden group border-t-white/[0.08] flex-none">
-                        <div className="absolute inset-x-0 bottom-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                        <div className="space-y-1 lg:space-y-1.5 relative">
-                            <p className="text-[7px] lg:text-[8px] text-gray-700 font-bold uppercase tracking-[0.3em] lg:tracking-[0.4em]">SST Mapping</p>
+                    <motion.div
+                        initial={{ y: 20, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        className="h-32 glass p-8 rounded-[2.5rem] flex items-center justify-between shadow-2xl border-t-white/[0.1]"
+                    >
+                        <div className="space-y-2">
+                            <p className="text-[8px] text-gray-600 font-black uppercase tracking-[0.4em]">SST Entropy</p>
                             <div className="flex items-baseline gap-2">
-                                <p className="text-xl lg:text-2xl font-black text-white italic">99.98%</p>
-                                <span className="text-[8px] lg:text-[9px] text-emerald-500 font-black tracking-widest uppercase">High</span>
+                                <p className="text-2xl font-black text-white italic">99.99%</p>
+                                <span className="text-[8px] text-cyan-500 font-black uppercase">Verified</span>
                             </div>
                         </div>
-                        <div className="w-12 h-12 lg:w-16 lg:h-16 rounded-[1rem] lg:rounded-[1.25rem] border border-white/[0.05] bg-white/[0.01] flex items-center justify-center group-hover:bg-white/[0.03] transition-all flex-none">
-                            <span className="text-[10px] lg:text-[12px] font-black text-emerald-500 italic opacity-80 uppercase">PRO</span>
+                        <div className="w-16 h-16 rounded-2xl glass-cyan flex items-center justify-center border-cyan-500/10">
+                            <span className="text-sm font-black text-cyan-500 italic">SST</span>
                         </div>
-                    </div>
-
+                    </motion.div>
                 </div>
-
             </div>
         </div>
     );
